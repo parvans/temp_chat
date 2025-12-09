@@ -1,12 +1,43 @@
+import { redis } from '@/lib/redis';
 import { Elysia, t } from 'elysia'
-
-const app = new Elysia({ prefix: '/api' })
-    .get('/', 'Hello Nextjs')
-    .post('/', ({ body }) => body, {
-        body: t.Object({
-            name: t.String()
-        })
+import { nanoid } from 'nanoid'
+import { authMiddleware } from './auth';
+import z from 'zod';
+const ROOM_TTL_SECONDS = 60 * 10 
+const rooms = new Elysia({prefix:'/room'})
+.post('/create',async()=>{
+    const roomId = nanoid();
+    
+    await redis.hset(`meta:${roomId}`,{
+        connected:[],
+        createdAt:Date.now()
     })
+
+    await redis.expire(`meta:${roomId}`,ROOM_TTL_SECONDS)
+
+    return {roomId}
+})
+
+const message = new Elysia({prefix:'/messages'},)
+.use(authMiddleware)
+.post("/",async({auth, body})=>{
+    const { sender, text } = body
+    const {roomId} = auth
+
+    const roomExist = await redis.exists(`meta:${roomId}`);
+    if(!roomExist){
+        throw new Error("Room does not exist")
+    }
+    
+
+},{
+    query:z.object({roomId:z.string()}), 
+    body:z.object({
+        sender:z.string().max(100),
+        text:z.string().max(1000)
+    }),
+})
+const app = new Elysia({ prefix: '/api' }).use(rooms).use(message)
 
 export type App = typeof app 
 
