@@ -1,33 +1,28 @@
 "use client";
+import { useUsername } from "@/hooks/use-Username";
 import { client } from "@/lib/client";
 import { useMutation } from "@tanstack/react-query";
-import { nanoid } from "nanoid";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-const ANIMALS = ["wolf", "hawk", "bear", "shark", "lion", "tiger"];
-const STORAGE_KEY = "chat_username";
-const generateUserName = ()=>{
-  const word = ANIMALS[Math.floor(Math.random()*ANIMALS.length)];
-  return `anonymous-${word}-${nanoid(5)}`
+const Page = ()=>{
+  return (
+    <Suspense>
+      <Lobby/>
+    </Suspense>
+  )
 }
-export default function Home() {
-  const [userName, setUserName] = useState("")
+
+export default Page
+
+function Lobby() {
+  const { userName } = useUsername()
   const router = useRouter()
-  useEffect(()=>{
-    const main = ()=>{
-      const store =localStorage.getItem(STORAGE_KEY);
-      if(store){
-        setUserName(store);
-      }
-      const generated = generateUserName();
-      localStorage.setItem(STORAGE_KEY, generated);
-      setUserName(generated);
-    }
 
-    main();
-  },[]);
-
+  const searchParams = useSearchParams()
+  const wasDestroyed = searchParams.get("destroyed") === "true"
+  const error = searchParams.get("error")
+  
   const {mutate:createRoom} = useMutation({
     mutationFn:async()=>{
       const res = await client.room.create.post()
@@ -39,6 +34,36 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8">
+         {error === 'room-not-found' && (
+          <div className="bg-red-950/50 border-red-900 p-4 text-center">
+            <p className="text-red-500 text-sm font-bold">
+              ROOM NOT FOUND
+            </p>
+            <p className="text-zinc-500 text-xs mt-1 ">
+              This room is not found.
+            </p>
+          </div>
+         )}
+         {wasDestroyed && (
+          <div className="bg-red-950/50 border-red-900 p-4 text-center">
+            <p className="text-red-500 text-sm font-bold">
+              ROOM DESTROYED
+            </p>
+            <p className="text-zinc-500 text-xs mt-1 ">
+              All messages were permanently deleted.
+            </p>
+          </div>
+         )}
+         {error === 'room-full' && (
+          <div className="bg-red-950/50 border-red-900 p-4 text-center">
+            <p className="text-red-500 text-sm font-bold">
+              ROOM IS FULL
+            </p>
+            <p className="text-zinc-500 text-xs mt-1 ">
+              This room is full.
+            </p>
+          </div>
+         )}
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-green-500">{">"}private_chat</h1>
           <p className="text-zinc-500 text-sm">A private, self destructing chat room.</p>
