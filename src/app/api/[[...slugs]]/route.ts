@@ -1,5 +1,6 @@
 import { redis } from '@/lib/redis';
 import { Elysia, t } from 'elysia'
+import { cors } from '@elysiajs/cors'
 import { nanoid } from 'nanoid'
 import { authMiddleware } from './auth';
 import z from 'zod';
@@ -78,7 +79,18 @@ const message = new Elysia({prefix:'/messages'},)
     })) }
 },{query:z.object({roomId:z.string()})})
 
-const app = new Elysia({ prefix: '/api' }).use(rooms).use(message)
+const app = new Elysia({ prefix: '/api' })
+ .use(
+    cors({
+      origin: [
+        'http://localhost:3000',
+      ],
+      methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+      credentials: true
+    })
+  )
+.use(rooms)
+.use(message)
 
 export type App = typeof app 
 
